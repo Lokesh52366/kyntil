@@ -1,0 +1,59 @@
+version: '3.8'
+
+services:
+  # 🛢️ Polyglot Database Engine (PostgreSQL + pgvector) branded for KYNTIL
+  db:
+    image: ankane/pgvector:latest
+    container_name: kyntil_db
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: kyntil
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - kyntil_network
+
+  # 🏎️ Cache & Message Broker for Celery Workers
+  redis:
+    image: redis:7-alpine
+    container_name: kyntil_redis
+    ports:
+      - "6379:6379"
+    networks:
+      - kyntil_network
+
+  # 🪵 Message Streaming Infrastructure (Zookeeper + Kafka)
+  zookeeper:
+    image: confluentinc/cp-zookeeper:latest
+    container_name: kyntil_zookeeper
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    networks:
+      - kyntil_network
+
+  kafka:
+    image: confluentinc/cp-kafka:latest
+    container_name: kyntil_kafka
+    depends_on:
+      - zookeeper
+    ports:
+      - "9092:9092"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092,PLAINTEXT_INTERNAL://kafka:29092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_INTERNAL:PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+    networks:
+      - kyntil_network
+
+volumes:
+  postgres_data:
+
+networks:
+  kyntil_network:
+    driver: bridge
